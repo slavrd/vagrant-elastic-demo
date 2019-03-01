@@ -1,28 +1,79 @@
 require 'ipaddr'
+require 'ERB'
 
 Vagrant.configure("2") do |config|
 
+  # Variable declarations
+    # general vars
+  es_cluster_name = "es-cluster"
+
+    # elasticsearch master
+  es_master_name = "master-01"
+  es_master_ip = "192.168.2.100"
+
+    # elasticsearch datanodes
+  es_datanodes = 2
+  es_datanodes_name = "data-%02d" # template that needs the node number
+  es_datanodes_start_ip = IPAddr.new("192.168.2.110") # Node IPs will start from the next one
+
   # Common configurations
   config.vm.box = "slavrd/xenial64"
+  config.vm.provision "shell", path: "scripts/general-install.sh"
 
-  # Define common Elastic stack VM - logstash, es master and kibana machine
-  config.vm.define "elkcommon" do |es|
-    es.vm.hostname = "elkcommon"
-    es.vm.network "private_network", ip: "192.168.2.100"
-    es.vm.network "forwarded_port", guest: 80, host: 8090
+  # Define common Elastic stack VM - logstash, elasticsearch master and kibana machine
+
+  config.vm.define "elkcommon" do |elkcom|
+
+    elkcom.vm.hostname = "elkcommon"
+    elkcom.vm.network "private_network", ip: es_master_ip
+    elkcom.vm.network "forwarded_port", guest: 80, host: 8090
+
+    # Install Elasticseach
+    elkcom.vm.provision "shell", path: "scripts/es-install.sh"
+
+    # Configure Elasticsearch
+      # copy jvm settings to guest
+    elkcom.vm.provision "file", source: "configs/elasticsearch/master/jvm.options", destination: "/tmp/elasticsearch_tmp_conig/jvm.options"
+
+      # render elasticsearch.yml from template
+    esConfigTemplate = File.read("configs/elasticsearch/master/elasticsearch.yml.erb")
+    File.write("/tmp/elasticsearch.yml",ERB.new(esConfigTemplate).result(binding))
+      # copy elasticsearch settings to guest
+    elkcom.vm.provision "file", source: "/tmp/elasticsearch.yml", destination: "/tmp/elasticsearch_tmp_conig/elasticsearch.yml"
+
+      # apply copied settings
+    elkcom.vm.provision "shell", path: "scripts/es-configure.sh"
+
   end
 
-  # Define Elastic stack es data nodes
-  esdatanodes = 2
-  esnodes_start_ip = IPAddr.new("192.168.2.110") # Node IPs will start from the next one
+  # Define Elasticsearch data nodes
 
-  (1..esdatanodes).each do |i|
+  (1..es_datanodes).each do |i|
 
     vm_name = "esdatanode%02d" % [i]
+    current_node_ip = es_datanodes_start_ip.succ.to_s
+    current_node_name = es_datanodes_name % [i]
     
     config.vm.define vm_name do |esnode|
       esnode.vm.hostname = vm_name
-      esnode.vm.network "private_network", ip: esnodes_start_ip.succ.to_s
+      esnode.vm.network "private_network", ip: current_node_ip
+
+      # Install Elasticseach
+      esnode.vm.provision "shell", path: "scripts/es-install.sh"
+
+      #Configure Elasticsearch
+      # copy jvm settings to guest
+      esnode.vm.provision "file", source: "configs/elasticsearch/data/jvm.options", destination: "/tmp/elasticsearch_tmp_conig/jvm.options"
+
+        # render elasticsearch.yml from template
+      esConfigTemplate = File.read("configs/elasticsearch/data/elasticsearch.yml.erb")
+      File.write("/tmp/elasticsearch.yml",ERB.new(esConfigTemplate).result(binding))
+      # copy elasticsearch settings to guest
+      esnode.vm.provision "file", source: "/tmp/elasticsearch.yml", destination: "/tmp/elasticsearch_tmp_conig/elasticsearch.yml"
+
+      # apply copied settings
+      esnode.vm.provision "shell", path: "scripts/es-configure.sh"
+
     end
 
   end
