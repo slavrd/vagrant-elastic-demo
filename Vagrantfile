@@ -23,16 +23,20 @@ Vagrant.configure("2") do |config|
   # Define common Elastic stack VM - logstash, elasticsearch master and kibana machine
   config.vm.define "elkcommon" do |elkcom|
 
+    elkcom.vm.provider "virtualbox" do |v|
+      v.memory = 1024
+    end
     elkcom.vm.hostname = "elkcommon"
     elkcom.vm.network "private_network", ip: es_master_ip
     elkcom.vm.network "forwarded_port", guest: 80, host: 8090
 
-    # Install Elasticseach
+    # Install Elastic prerequisites - java, add elastic repository to apt
     elkcom.vm.provision "shell", path: "scripts/elastic-prerequsites.sh"
+
+    # Install Elasticseach
     elkcom.vm.provision "shell", path: "scripts/es-install.sh"
 
     # Configure Elasticsearch
-      # copy jvm settings to guest
     elkcom.vm.provision "file", source: "configs/elasticsearch/master/jvm.options", destination: "/tmp/elasticsearch_tmp_conig/jvm.options"
 
       # render elasticsearch.yml from template
@@ -42,8 +46,19 @@ Vagrant.configure("2") do |config|
       # copy elasticsearch settings to guest
     elkcom.vm.provision "file", source: esMasterConfigFile, destination: "/tmp/elasticsearch_tmp_conig/elasticsearch.yml"
 
-      # apply copied settings
+      # apply copied configurations
     elkcom.vm.provision "shell", path: "scripts/es-configure.sh"
+
+    # Isntall Logstash
+    elkcom.vm.provision "shell", path: "scripts/ls-install.sh"
+
+    # Configure Logstash
+      # copy jvm settings to guest
+    elkcom.vm.provision "file", source: "configs/logstash/jvm.options", destination: "/tmp/logstash_tmp_conig/jvm.options"
+      # copy pipeling configuration to guest
+    elkcom.vm.provision "file", source: "configs/logstash/conf.d/nginx-access.conf", destination: "/tmp/logstash_tmp_conig/conf.d/nginx-access.conf"
+      # appliy copied configurations
+    elkcom.vm.provision "shell", path: "scripts/ls-configure.sh"
 
   end
 
