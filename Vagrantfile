@@ -28,6 +28,7 @@ Vagrant.configure("2") do |config|
     elkcom.vm.network "forwarded_port", guest: 80, host: 8090
 
     # Install Elasticseach
+    elkcom.vm.provision "shell", path: "scripts/elastic-prerequsites.sh"
     elkcom.vm.provision "shell", path: "scripts/es-install.sh"
 
     # Configure Elasticsearch
@@ -60,6 +61,7 @@ Vagrant.configure("2") do |config|
       esnode.vm.network "private_network", ip: current_datanode_ip.to_s
 
       # Install Elasticseach
+      esnode.vm.provision "shell", path: "scripts/elastic-prerequsites.sh"
       esnode.vm.provision "shell", path: "scripts/es-install.sh"
 
       # Configure Elasticsearch
