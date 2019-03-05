@@ -30,34 +30,25 @@ Vagrant.configure("2") do |config|
     elkcom.vm.network "private_network", ip: es_master_ip
     elkcom.vm.network "forwarded_port", guest: 80, host: 8090
 
-    # Install Elastic prerequisites - java, add elastic repository to apt
-    elkcom.vm.provision "shell", path: "scripts/elastic-prerequsites.sh"
+    # Install Java
+    elkcom.vm.provision "shell", path: "scripts/java-install.sh"
 
     # Install Elasticseach
+    elkcom.vm.provision "shell", path: "scripts/elastic-apt-repository.sh"
     elkcom.vm.provision "shell", path: "scripts/es-install.sh"
 
-    # Configure Elasticsearch
     elkcom.vm.provision "file", source: "configs/elasticsearch/master/jvm.options", destination: "/tmp/elasticsearch_tmp_conig/jvm.options"
-
-      # render elasticsearch.yml from template
+      # generate the elasticsearch configuration from template
     esMasterConfigFile = "/tmp/elasticsearch.%s.yml" % es_master_name
     esMasterConfigTemplate = File.read("configs/elasticsearch/master/elasticsearch.yml.erb")
     File.write(esMasterConfigFile, ERB.new(esMasterConfigTemplate).result(binding))
-      # copy elasticsearch settings to guest
     elkcom.vm.provision "file", source: esMasterConfigFile, destination: "/tmp/elasticsearch_tmp_conig/elasticsearch.yml"
-
-      # apply copied configurations
     elkcom.vm.provision "shell", path: "scripts/es-configure.sh"
 
     # Isntall Logstash
     elkcom.vm.provision "shell", path: "scripts/ls-install.sh"
-
-    # Configure Logstash
-      # copy jvm settings to guest
     elkcom.vm.provision "file", source: "configs/logstash/jvm.options", destination: "/tmp/logstash_tmp_conig/jvm.options"
-      # copy pipeling configuration to guest
     elkcom.vm.provision "file", source: "configs/logstash/conf.d/nginx-access.conf", destination: "/tmp/logstash_tmp_conig/conf.d/nginx-access.conf"
-      # appliy copied configurations
     elkcom.vm.provision "shell", path: "scripts/ls-configure.sh"
 
   end
@@ -75,23 +66,21 @@ Vagrant.configure("2") do |config|
       
       esnode.vm.network "private_network", ip: current_datanode_ip.to_s
 
+      # Install Java and add Elastic reposittory to apt
+      esnode.vm.provision "shell", path: "scripts/java-install.sh"
+      esnode.vm.provision "shell", path: "scripts/elastic-apt-repository.sh"
+
       # Install Elasticseach
-      esnode.vm.provision "shell", path: "scripts/elastic-prerequsites.sh"
       esnode.vm.provision "shell", path: "scripts/es-install.sh"
 
-      # Configure Elasticsearch
-        # copy jvm settings to guest
       esnode.vm.provision "file", source: "configs/elasticsearch/data/jvm.options", destination: "/tmp/elasticsearch_tmp_conig/jvm.options"
-
         # render elasticsearch.yml from template
       esDataConfigFile = "/tmp/elasticsearch.%s.yml" % current_node_name
       esDataConfigTemplate = File.read("configs/elasticsearch/data/elasticsearch.yml.erb")
       File.write(esDataConfigFile,ERB.new(esDataConfigTemplate).result(binding))
-        # copy elasticsearch settings to guest
       esnode.vm.provision "file", source: esDataConfigFile, destination: "/tmp/elasticsearch_tmp_conig/elasticsearch.yml"
-
-        # apply copied settings
       esnode.vm.provision "shell", path: "scripts/es-configure.sh"
+
     end
 
   end
@@ -102,6 +91,11 @@ Vagrant.configure("2") do |config|
     web.vm.hostname = "web01"
     web.vm.network "private_network", ip: "192.168.2.10"
     web.vm.network "forwarded_port", guest: 80, host: 8080
+
+    # Install Filebeats
+    web.vm.provision "shell", path: "scripts/elastic-apt-repository.sh"
+    web.vm.provision "shell", path: "scripts/fb-install.sh"
+
   end
 
 end
