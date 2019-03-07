@@ -92,9 +92,15 @@ Vagrant.configure("2") do |config|
     web.vm.network "private_network", ip: "192.168.2.10"
     web.vm.network "forwarded_port", guest: 80, host: 8080
 
-    # Install Filebeats
+    # Install Filebeat
     web.vm.provision "shell", path: "scripts/elastic-apt-repository.sh"
     web.vm.provision "shell", path: "scripts/fb-install.sh"
+      # render filebeat.yml from template
+    fbConfigFile = "/tmp/filebeat.yml"
+    fbConfigTemplate = File.read("configs/filebeat/filebeat.yml.erb")
+    File.write(fbConfigFile,ERB.new(fbConfigTemplate).result(binding))
+    web.vm.provision "file", source: fbConfigFile, destination: "/tmp/filebeat_tmp_config/filebeat.yml"
+    web.vm.provision "shell", path: "scripts/fb-configure.sh", args: [es_master_ip]
 
   end
 
