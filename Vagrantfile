@@ -20,39 +20,6 @@ Vagrant.configure("2") do |config|
   config.vm.box = "slavrd/xenial64"
   config.vm.provision "shell", path: "scripts/general-install.sh"
 
-  # Define common Elastic stack VM - logstash, elasticsearch master and kibana machine
-  config.vm.define "elkcommon" do |elkcom|
-
-    elkcom.vm.provider "virtualbox" do |v|
-      v.memory = 1024
-    end
-    elkcom.vm.hostname = "elkcommon"
-    elkcom.vm.network "private_network", ip: es_master_ip
-    elkcom.vm.network "forwarded_port", guest: 80, host: 8090
-
-    # Install Java
-    elkcom.vm.provision "shell", path: "scripts/java-install.sh"
-
-    # Install Elasticseach
-    elkcom.vm.provision "shell", path: "scripts/elastic-apt-repository.sh"
-    elkcom.vm.provision "shell", path: "scripts/es-install.sh"
-
-    elkcom.vm.provision "file", source: "configs/elasticsearch/master/jvm.options", destination: "/tmp/elasticsearch_tmp_conig/jvm.options"
-      # generate the elasticsearch configuration from template
-    esMasterConfigFile = "/tmp/elasticsearch.%s.yml" % es_master_name
-    esMasterConfigTemplate = File.read("configs/elasticsearch/master/elasticsearch.yml.erb")
-    File.write(esMasterConfigFile, ERB.new(esMasterConfigTemplate).result(binding))
-    elkcom.vm.provision "file", source: esMasterConfigFile, destination: "/tmp/elasticsearch_tmp_conig/elasticsearch.yml"
-    elkcom.vm.provision "shell", path: "scripts/es-configure.sh"
-
-    # Isntall Logstash
-    elkcom.vm.provision "shell", path: "scripts/ls-install.sh"
-    elkcom.vm.provision "file", source: "configs/logstash/jvm.options", destination: "/tmp/logstash_tmp_conig/jvm.options"
-    elkcom.vm.provision "file", source: "configs/logstash/conf.d/nginx-access.conf", destination: "/tmp/logstash_tmp_conig/conf.d/nginx-access.conf"
-    elkcom.vm.provision "shell", path: "scripts/ls-configure.sh"
-
-  end
-
   # Define Elasticsearch data nodes
   current_datanode_ip = es_datanodes_start_ip
   (1..es_datanodes).each do |i|
@@ -82,6 +49,45 @@ Vagrant.configure("2") do |config|
       esnode.vm.provision "shell", path: "scripts/es-configure.sh"
 
     end
+
+  end
+
+  # Define common Elastic stack VM - logstash, elasticsearch master and kibana machine
+  config.vm.define "elkcommon" do |elkcom|
+
+    elkcom.vm.provider "virtualbox" do |v|
+      v.memory = 1024
+    end
+    elkcom.vm.hostname = "elkcommon"
+    elkcom.vm.network "private_network", ip: es_master_ip
+    elkcom.vm.network "forwarded_port", guest: 5601, host: 8090
+
+    # Install Java
+    elkcom.vm.provision "shell", path: "scripts/java-install.sh"
+
+    # Install Elasticseach
+    elkcom.vm.provision "shell", path: "scripts/elastic-apt-repository.sh"
+    elkcom.vm.provision "shell", path: "scripts/es-install.sh"
+
+    elkcom.vm.provision "file", source: "configs/elasticsearch/master/jvm.options", destination: "/tmp/elasticsearch_tmp_conig/jvm.options"
+      # generate the elasticsearch configuration from template
+    esMasterConfigFile = "/tmp/elasticsearch.%s.yml" % es_master_name
+    esMasterConfigTemplate = File.read("configs/elasticsearch/master/elasticsearch.yml.erb")
+    File.write(esMasterConfigFile, ERB.new(esMasterConfigTemplate).result(binding))
+    elkcom.vm.provision "file", source: esMasterConfigFile, destination: "/tmp/elasticsearch_tmp_conig/elasticsearch.yml"
+    elkcom.vm.provision "shell", path: "scripts/es-configure.sh"
+
+    # Isntall Logstash
+    elkcom.vm.provision "shell", path: "scripts/ls-install.sh"
+    elkcom.vm.provision "file", source: "configs/logstash/jvm.options", destination: "/tmp/logstash_tmp_conig/jvm.options"
+    elkcom.vm.provision "file", source: "configs/logstash/conf.d/nginx-access.conf", destination: "/tmp/logstash_tmp_conig/conf.d/nginx-access.conf"
+    elkcom.vm.provision "shell", path: "scripts/ls-configure.sh"
+
+    # Install Kibana
+    elkcom.vm.provision "shell", path: "scripts/kb-install.sh"
+    elkcom.vm.provision "file", source: "configs/kibana/kibana.yml", destination: "/tmp/kibana_tmp_conig/kibana.yml"
+    elkcom.vm.provision "file", source: "configs/kibana/saved_objects.json", destination: "/tmp/kibana_tmp_conig/saved_objects.json"
+    elkcom.vm.provision "shell", path: "scripts/kb-configure.sh"
 
   end
 
