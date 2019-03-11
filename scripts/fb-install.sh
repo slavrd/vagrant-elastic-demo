@@ -3,7 +3,7 @@
 
 which filebeat >>/dev/null || {
     sudo apt-get update
-    sudo apt-get install -y filebeat
+    sudo apt-get install -y filebeat=6.6.1
     sudo apt-get clean
 }
 
